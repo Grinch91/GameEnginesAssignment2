@@ -11,8 +11,9 @@ namespace BGE
         public Vector3 force;
         public Vector3 velocity;
         public Vector3 acceleration;
+        public Vector3 sphereCentre;
 
-        public float myRadius;
+        public float defaultRadius = 5.0f;
 
         public float mass;
 
@@ -31,80 +32,56 @@ namespace BGE
         private Vector3 randomWalkTarget;
         public Path path = new Path();
         public float maxSpeed;
+        public bool drawNeighbours = false;
+        public float maxForce;
 
         Color debugLineColour = Color.cyan;
 
         float timeDelta;
 
         #region Flags
-        public enum behaviour_type
+
+        public void TurnOffAll()
         {
-
-            none = 0x00000,
-            seek = 0x00002,
-            flee = 0x00004,
-            arrive = 0x00008,
-            wander = 0x00010,
-            cohesion = 0x00020,
-            separation = 0x00040,
-            alignment = 0x00080,
-            obstacle_avoidance = 0x00100,
-            wall_avoidance = 0x00200,
-            follow_path = 0x00400,
-            pursuit = 0x00800,
-            evade = 0x01000,
-            interpose = 0x02000,
-            hide = 0x04000,
-            flock = 0x08000,
-            offset_pursuit = 0x10000,
-            sphere_constrain = 0x20000,
-            random_walk = 0x40000,
-        };
-
-        int flags;
-
-        public bool isOn(behaviour_type behaviour)
-        {
-            return ((flags & (int)behaviour) == (int)behaviour);
+            SeekEnabled= false;
+            FleeEnabled= false;
+            ArriveEnabled= false;
+            WanderEnabled= false;
+            CohesionEnabled= false;
+            SeparationEnabled= false;
+            AlignmentEnabled= false;
+            ObstacleAvoidanceEnabled= false;
+            PlaneAvoidanceEnabled= false;
+            FollowPathEnabled= false;
+            PursuitEnabled= false;
+            EvadeEnabled= false;
+            InterposeEnabled= false;
+            HideEnabled= false;
+            OffsetPursuitEnabled= false;
+            SphereConstrainEnabled= false;
+            RandomWalkEnabled= false;
         }
 
-        public void turnOn(behaviour_type behaviour)
-        {
-            flags |= ((int)behaviour);
-        }
-        
-        public void turnOff(behaviour_type behaviour)
-        {
-            flags &= ( ~ (int)behaviour);
-        }
+        public bool SeekEnabled;
+        public bool FleeEnabled;
+        public bool ArriveEnabled;
+        public bool WanderEnabled;
+        public bool CohesionEnabled;
+        public bool SeparationEnabled;
+        public bool AlignmentEnabled;
+        public bool ObstacleAvoidanceEnabled;
+        public bool PlaneAvoidanceEnabled;
+        public bool FollowPathEnabled;
+        public bool PursuitEnabled;
+        public bool EvadeEnabled;
+        public bool InterposeEnabled;
+        public bool HideEnabled;
+        public bool OffsetPursuitEnabled;
+        public bool SphereConstrainEnabled;
+        public bool RandomWalkEnabled;
+#endregion
 
-        public void turnOffAll()
-        {
-            flags = (int)SteeringBehaviours.behaviour_type.none;
-        }
-
-        public bool SeekBehaviour
-        {
-            get
-            {
-                return isOn(behaviour_type.seek);
-            }
-            set
-            {
-                if (value)
-                {
-                    turnOn(behaviour_type.seek);
-                }
-                else
-                {
-                    turnOff(behaviour_type.seek);
-                }
-            }
-        }
-        #endregion
-
-        #region Utilities
-        
+#region Utilities        
         private void makeFeelers()
         {
             Feelers.Clear();
@@ -134,14 +111,14 @@ namespace BGE
             newFeeler = transform.TransformPoint(newFeeler);
             Feelers.Add(newFeeler);
         }
-        #endregion
-        #region Integration
+#endregion
+#region Integration
 
         private bool accumulateForce(ref Vector3 runningTotal, Vector3 force)
         {
             float soFar = runningTotal.magnitude;
 
-            float remaining = Params.GetFloat("max_force") - soFar;
+            float remaining = maxForce - soFar;
             if (remaining <= 0)
             {
                 return false;
@@ -161,6 +138,37 @@ namespace BGE
             return true;
         }
 
+
+
+        private void EnforceNonPenetrationConstraint()
+        {
+            GameObject[] boids;
+            // Just use the tagged boids if we are flocking, otherwise get all the boids
+            if (tagged != null)
+            {
+                boids = tagged.ToArray();
+            }
+            else
+            {
+                boids = GameObject.FindGameObjectsWithTag("boid");
+            }
+            foreach (GameObject boid in boids)
+            {
+                if (boid == gameObject)
+                {
+                    continue;
+                }
+                Vector3 toOther = boid.transform.position - gameObject.transform.position;
+                float distance = toOther.magnitude;
+                float overlap = GetRadius() + boid.GetComponent<SteeringBehaviours>().GetRadius() - distance;
+                if (overlap >= 0)
+                {
+                    boid.transform.position = (boid.transform.position + (toOther / distance) *
+                     overlap);
+                }
+            }
+        }
+
         public Vector3 Calculate()
         {
             if (calculationMethod == CalculationMethods.WeightedTruncatedRunningSumWithPrioritisation)
@@ -176,7 +184,8 @@ namespace BGE
             Vector3 force = Vector3.zero;
             Vector3 steeringForce = Vector3.zero;
 
-            if (isOn(behaviour_type.obstacle_avoidance))
+
+            if (ObstacleAvoidanceEnabled)
             {
                 force = ObstacleAvoidance() * Params.GetWeight("obstacle_avoidance_weight");
 
@@ -188,16 +197,16 @@ namespace BGE
 
 
             Utilities.checkNaN(force);
-            if (isOn(behaviour_type.wall_avoidance))
+            if (PlaneAvoidanceEnabled)
             {
-                force = WallAvoidance() * Params.GetWeight("wall_avoidance_weight");
+                force = PlaneAvoidance() * Params.GetWeight("plane_avoidance_weight");
                 if (!accumulateForce(ref steeringForce, force))
                 {
                     return steeringForce;
                 }
             }
 
-            if (isOn(behaviour_type.sphere_constrain))
+            if (SphereConstrainEnabled)
             {
                 force = SphereConstrain(Params.GetFloat("world_range")) * Params.GetWeight("sphere_constrain_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -206,7 +215,7 @@ namespace BGE
                 }
             }
 
-            if (isOn(behaviour_type.evade))
+            if (EvadeEnabled)
             {
                 force = Evade() * Params.GetWeight("evade_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -215,13 +224,35 @@ namespace BGE
                 }
             }
 
-            int tagged = 0;
-            if (isOn(behaviour_type.separation) || isOn(behaviour_type.cohesion) || isOn(behaviour_type.alignment))
+            if (FleeEnabled)
             {
-                tagged = TagNeighboursSimple(Params.GetFloat("tag_range"));
+                force = Flee(target.transform.position) * Params.GetWeight("flee_weight");
+                if (!accumulateForce(ref steeringForce, force))
+                {
+                    return steeringForce;
+                }
             }
 
-            if (isOn(behaviour_type.separation) && (tagged > 0))
+            int tagged = 0;
+            if (SeparationEnabled || CohesionEnabled || AlignmentEnabled)
+            {
+                if (Params.cellSpacePartitioning)
+                {
+                    tagged = TagNeighboursPartitioned(Params.GetFloat("tag_range"));
+                    //int testTagged = TagNeighboursSimple(Params.GetFloat("tag_range"));
+                    //Debug.Log(tagged + "\t" + testTagged); // These numbers should be the same
+                    //if (tagged != testTagged)
+                    {
+                        //Debug.Log("Different!!"); // These numbers should be the same                                          
+                    }
+                }
+                else
+                {
+                    tagged = TagNeighboursSimple(Params.GetFloat("tag_range"));
+                }
+            }
+
+            if (SeparationEnabled && (tagged > 0))
             {
                 force = Separation() * Params.GetWeight("separation_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -230,7 +261,7 @@ namespace BGE
                 }
             }
 
-            if (isOn(behaviour_type.alignment) && (tagged > 0))
+            if (AlignmentEnabled && (tagged > 0))
             {
                 force = Alignment() * Params.GetWeight("alignment_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -239,7 +270,7 @@ namespace BGE
                 }
             }
 
-            if (isOn(behaviour_type.cohesion) && (tagged > 0))
+            if (CohesionEnabled && (tagged > 0))
             {
                 force = Cohesion() * Params.GetWeight("cohesion_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -248,7 +279,7 @@ namespace BGE
                 }
             }
 
-            if (isOn(behaviour_type.seek))
+            if (SeekEnabled)
             {
                 force = Seek(seekTargetPos) * Params.GetWeight("seek_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -257,7 +288,7 @@ namespace BGE
                 }
             }
 
-            if (isOn(behaviour_type.arrive))
+            if (ArriveEnabled)
             {
                 force = Arrive(seekTargetPos) * Params.GetWeight("arrive_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -266,7 +297,7 @@ namespace BGE
                 }
             }
 
-            if (isOn(behaviour_type.wander))
+            if (WanderEnabled)
             {
                 force = Wander() * Params.GetWeight("wander_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -275,7 +306,7 @@ namespace BGE
                 }
             }
 
-            if (isOn(behaviour_type.pursuit))
+            if (PursuitEnabled)
             {
                 force = Pursue() * Params.GetWeight("pursuit_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -284,7 +315,7 @@ namespace BGE
                 }
             }
 
-            if (isOn(behaviour_type.offset_pursuit))
+            if (OffsetPursuitEnabled)
             {
                 force = OffsetPursuit(offset) * Params.GetWeight("offset_pursuit_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -293,7 +324,7 @@ namespace BGE
                 }
             }
 
-            if (isOn(behaviour_type.follow_path))
+            if (FollowPathEnabled)
             {
                 force = FollowPath() * Params.GetWeight("follow_path_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -302,7 +333,7 @@ namespace BGE
                 }
             }
 
-            if (isOn(behaviour_type.random_walk))
+            if (RandomWalkEnabled)
             {
                 force = RandomWalk() * Params.GetWeight("random_walk_weight");
                 if (!accumulateForce(ref steeringForce, force))
@@ -318,15 +349,19 @@ namespace BGE
         {
             float smoothRate;
             force = Calculate();
+            if (Params.drawForces)
+            {
+                Quaternion q = Quaternion.FromToRotation(Vector3.forward, force);
+                LineDrawer.DrawArrowLine(transform.position, transform.position + force * 5.0f, Color.blue, q);
+            }
             Utilities.checkNaN(force);
             Vector3 newAcceleration = force / mass;
-
             if (Params.drawVectors)
             {
                 LineDrawer.DrawVectors(transform);
             }
 
-            timeDelta = Time.deltaTime + Params.timeModifier;
+            timeDelta = Time.deltaTime * Params.timeModifier;
 
             if (timeDelta > 0.0f)
             {
@@ -367,20 +402,14 @@ namespace BGE
                 velocity *= 0.99f;
             }
 
+            
+
             path.Draw();
 
-            //Vector3 acceleration = Calculate() / mass;
-            //velocity += acceleration * Time.deltaTime;
-            //gameObject.transform.position += velocity * Time.deltaTime;
-
-            //force = Vector3.zero;
-
-            //if (velocity.magnitude > 0.01f)
-            //{
-            //    gameObject.transform.forward = Vector3.Normalize(velocity);
-            //}
-
-            //velocity *= 0.99f;
+            if (Params.enforceNonPenetrationConstraint)
+            {
+                EnforceNonPenetrationConstraint();
+            }           
         }
 
         #endregion
@@ -415,22 +444,29 @@ namespace BGE
             Vector3 force = Vector3.zero;
             makeFeelers();
             List<GameObject> tagged = new List<GameObject>();
-            float minBoxLength = 20.0f;
+            float minBoxLength = 50.0f;
             float boxLength = minBoxLength + ((velocity.magnitude / maxSpeed) * minBoxLength * 2.0f);
 
             if (float.IsNaN(boxLength))
             {
                 System.Console.WriteLine("NAN");
             }
+
+            GameObject[] obstacles = GameObject.FindGameObjectsWithTag("obstacle");
             // Matt Bucklands Obstacle avoidance
             // First tag obstacles in range
-            GameObject[] obstacles = GameObject.FindGameObjectsWithTag("obstacle");
             if (obstacles.Length == 0)
             {
                 return Vector3.zero;
             }
             foreach (GameObject obstacle in obstacles)
             {
+                if (obstacle == null)
+                {
+                    Debug.Log("Null object");
+                    continue;
+                }
+                
                 Vector3 toCentre = transform.position - obstacle.transform.position;
                 float dist = toCentre.magnitude;
                 if (dist < boxLength)
@@ -457,7 +493,7 @@ namespace BGE
                     // is a potential intersection.
 
                     float obstacleRadius = o.transform.localScale.x / 2;
-                    float expandedRadius = myRadius + obstacleRadius;
+                    float expandedRadius = GetRadius() + obstacleRadius;
                     if ((Math.Abs(localPos.y) < expandedRadius) && (Math.Abs(localPos.x) < expandedRadius))
                     {
                         // Now to do a ray/sphere intersection test. The center of the				
@@ -472,7 +508,7 @@ namespace BGE
                         // Find the point of intersection
                         if (tempSphere.closestRayIntersects(ray, Vector3.zero, ref intersection) == false)
                         {
-                            return Vector3.zero;
+                            continue;
                         }
 
                         // Now see if its the closest, there may be other intersecting spheres
@@ -484,43 +520,47 @@ namespace BGE
                             localPosOfClosestObstacle = localPos;
                         }
                     }
-                }
-                if (closestIntersectingObstacle != null)
+                }                
+            }
+
+            if (closestIntersectingObstacle != null)
+            {
+                // Now calculate the force
+                float multiplier = 1.0f + (boxLength - localPosOfClosestObstacle.z) / boxLength;
+
+                //calculate the lateral force
+                float obstacleRadius = closestIntersectingObstacle.transform.localScale.x / 2; // closestIntersectingObstacle.GetComponent<Renderer>().bounds.extents.magnitude;
+                float expandedRadius = GetRadius() + obstacleRadius;
+                force.x = (expandedRadius - Math.Abs(localPosOfClosestObstacle.x)) * multiplier;
+                force.y = (expandedRadius - Math.Abs(localPosOfClosestObstacle.y)) * multiplier;
+
+                // Generate positive or negative direction so we steer around!
+                // Not always in the same direction as in Matt Bucklands book
+                if (localPosOfClosestObstacle.x > 0)
                 {
-                    // Now calculate the force
-                    // Calculate Z Axis braking  force
-                    float multiplier = 200 * (1.0f + (boxLength - localPosOfClosestObstacle.z) / boxLength);
-
-                    //calculate the lateral force
-                    float obstacleRadius = closestIntersectingObstacle.GetComponent<Renderer>().bounds.extents.magnitude;
-                    float expandedRadius = myRadius + obstacleRadius;
-                    force.x = (expandedRadius - Math.Abs(localPosOfClosestObstacle.x)) * multiplier;
-                    force.y = (expandedRadius - -Math.Abs(localPosOfClosestObstacle.y)) * multiplier;
-
-                    if (localPosOfClosestObstacle.x > 0)
-                    {
-                        force.x = -force.x;
-                    }
-
-                    if (localPosOfClosestObstacle.y > 0)
-                    {
-                        force.y = -force.y;
-                    }
-
-                    if (Params.drawDebugLines)
-                    {
-                        LineDrawer.DrawLine(transform.position, transform.position + transform.forward * boxLength, debugLineColour);                    
-                    }
-                    //apply a braking force proportional to the obstacle's distance from
-                    //the vehicle.
-                    const float brakingWeight = 40.0f;
-                    force.z = (obstacleRadius -
-                                       localPosOfClosestObstacle.z) *
-                                       brakingWeight;
-
-                    //finally, convert the steering vector from local to world space
-                    force = transform.TransformPoint(force);
+                    force.x = -force.x;
                 }
+
+                // If the obstacle is above, steer down
+                if (localPosOfClosestObstacle.y > 0)
+                {
+                    force.y = -force.y;
+                }
+
+                if (Params.drawDebugLines)
+                {
+                    LineDrawer.DrawLine(transform.position, transform.position + transform.forward * boxLength, Color.grey);
+                }
+                //apply a braking force proportional to the obstacle's distance from
+                //the vehicle.
+                const float brakingWeight = 0.01f;
+                force.z = (expandedRadius -
+                                   localPosOfClosestObstacle.z) *
+                                   brakingWeight;
+
+                //finally, convert the steering vector from local to world space
+                // Dont include position!                    
+                force = transform.TransformDirection(force);
             }
 
 
@@ -544,11 +584,11 @@ namespace BGE
 
         Vector3 Pursue()
         {
-            Vector3 toTarget = leader.transform.position - transform.position;
+            Vector3 toTarget = target.transform.position - transform.position;
             float dist = toTarget.magnitude;
             float time = dist / maxSpeed;
 
-            Vector3 targetPos = leader.transform.position + (time * leader.GetComponent<SteeringBehaviours>().velocity);
+            Vector3 targetPos = target.transform.position + (time * target.GetComponent<SteeringBehaviours>().velocity);
             if (Params.drawDebugLines)
             {
                 LineDrawer.DrawLine(transform.position, targetPos, debugLineColour);
@@ -564,7 +604,7 @@ namespace BGE
             desiredVelocity = transform.position - targetPos;
             if (desiredVelocity.magnitude > panicDistance)
             {
-                return Vector3.zero;
+                //return Vector3.zero;
             }
             desiredVelocity.Normalize();
             desiredVelocity *= maxSpeed;
@@ -574,11 +614,12 @@ namespace BGE
         Vector3 RandomWalk()
         {
             float dist = (transform.position - randomWalkTarget).magnitude;
+            float range = Params.GetFloat("world_range");
             if (dist < 50)
             {
-                randomWalkTarget.x = Utilities.RandomClamped() * Params.GetFloat("world_range");
-                randomWalkTarget.y = Utilities.RandomClamped(0, Params.GetFloat("world_range") / 2.0f);
-                randomWalkTarget.z = Utilities.RandomClamped() * Params.GetFloat("world_range");
+                randomWalkTarget.x = UnityEngine.Random.Range(-range, range);
+                randomWalkTarget.y = UnityEngine.Random.Range(0, range / 2.0f);
+                randomWalkTarget.z = UnityEngine.Random.Range(-range, range);
             }
             return Seek(randomWalkTarget);
         }
@@ -589,22 +630,26 @@ namespace BGE
         {
             float jitterTimeSlice = Params.GetFloat("wander_jitter") * timeDelta;
 
-            Vector3 toAdd = new Vector3(Utilities.RandomClamped(), Utilities.RandomClamped(), Utilities.RandomClamped()) * jitterTimeSlice;
+            Vector3 toAdd = UnityEngine.Random.insideUnitSphere * jitterTimeSlice;
             wanderTargetPos += toAdd;
             wanderTargetPos.Normalize();
             wanderTargetPos *= Params.GetFloat("wander_radius");
 
-            Vector3 worldTarget = transform.TransformPoint(wanderTargetPos + (Vector3.forward * Params.GetFloat("wander_distance")));
+            Vector3 localTarget = wanderTargetPos + Vector3.forward * Params.GetFloat("wander_distance");
+            Vector3 worldTarget = transform.TransformPoint(localTarget);
+            if (Params.drawDebugLines)
+            {
+                LineDrawer.DrawTarget(worldTarget, Color.blue);
+            }
             return (worldTarget - transform.position);
         }
 
-        public Vector3 WallAvoidance()
+        public Vector3 PlaneAvoidance()
         {
             makeFeelers();
 
-            Plane worldPlane = new Plane(new Vector3(0, 1, 0), 0);
+            Plane worldPlane = new Plane(new Vector3(0, 1, 0), 0);           
             Vector3 force = Vector3.zero;
-
             foreach (Vector3 feeler in Feelers)
             {
                 if (!worldPlane.GetSide(feeler))
@@ -677,11 +722,11 @@ namespace BGE
 
         public Vector3 SphereConstrain(float radius)
         {
-            float distance = transform.position.magnitude;
+            Vector3 toTarget = transform.position - sphereCentre;
             Vector3 steeringForce = Vector3.zero;
-            if (distance > radius)
+            if (toTarget.magnitude > radius)
             {
-                steeringForce = Vector3.Normalize(transform.position) * (radius - distance);
+                steeringForce = Vector3.Normalize(toTarget) * (radius - toTarget.magnitude);
             }
             return steeringForce;
         }
@@ -693,18 +738,90 @@ namespace BGE
         {
             tagged.Clear();
 
-            GameObject[] steerables = GameObject.FindGameObjectsWithTag("boid");
-            foreach (GameObject steerable in steerables)
+            GameObject[] allBoids = GameObject.FindGameObjectsWithTag("boid");
+
+            foreach (GameObject boid in allBoids)
             {
-                if (steerable != gameObject)
+                if (boid != gameObject)
                 {
-                    if ((transform.position - steerable.transform.position).magnitude < inRange)
+                    if (drawNeighbours && Params.drawDebugLines)
                     {
-                        tagged.Add(steerable);
+                        LineDrawer.DrawLine(transform.position, boid.transform.position, Color.yellow);
+                    }
+                    if ((transform.position - boid.transform.position).magnitude < inRange)
+                    {
+                        tagged.Add(boid);
                     }
                 }
             }
+            DrawNeighbours(Color.white);
             return tagged.Count;
+        }
+
+        private void DrawNeighbours(Color color)
+        {
+            if ((drawNeighbours) && (Params.drawDebugLines))
+            {
+                foreach (GameObject neighbour in tagged)
+                {
+                    LineDrawer.DrawCircle(neighbour.transform.position, 5, 10, color);
+                }
+                LineDrawer.DrawCircle(transform.position, 5, 10, Color.red);
+            }            
+        }
+
+        private int TagNeighboursPartitioned(float inRange)
+        {
+            Bounds expanded = new Bounds();
+            expanded.min = new Vector3(transform.position.x - inRange, 0, transform.position.z - inRange);
+            expanded.max = new Vector3(transform.position.x + inRange, 0, transform.position.z + inRange);
+
+            if (drawNeighbours && Params.drawDebugLines)
+            {
+                LineDrawer.DrawSquare(expanded.min, expanded.max, Color.yellow);
+            }
+
+            List<Cell> cells = SteeringManager.Instance.space.cells;
+            tagged.Clear();
+            int myCellIndex = SteeringManager.Instance.space.FindCell(transform.position);
+            if (myCellIndex == -1)
+            {
+                // Im outside the cells so return
+                return 0;
+            }
+            Cell myCell = SteeringManager.Instance.space.cells[myCellIndex];
+            
+            foreach (Cell cell in myCell.adjacent)
+            {
+                if (cell.Intersects(expanded))
+                {
+                    if (drawNeighbours && Params.drawDebugLines)
+                    {
+                        LineDrawer.DrawSquare(cell.bounds.min, cell.bounds.max, Color.magenta);
+                    }
+                    List<GameObject> entities = cell.contained;
+                    float rangeSquared = inRange * inRange;
+                    foreach (GameObject neighbour in entities)
+                    {
+                        if (neighbour != gameObject)
+                        {
+                            if (drawNeighbours && Params.drawDebugLines)
+                            {
+                                LineDrawer.DrawLine(transform.position, neighbour.transform.position, Color.yellow);
+                            }
+                            
+                            if (Vector3.SqrMagnitude(transform.position - neighbour.transform.position) < rangeSquared)
+                            {
+                                tagged.Add(neighbour);
+                            }
+                        }
+                    }
+                }
+            }
+
+            DrawNeighbours(Color.white);
+
+            return this.tagged.Count;
         }
 
         public Vector3 Separation()
@@ -779,7 +896,21 @@ namespace BGE
         // Use this for initialization
         void Start()
         {
-            myRadius = 5.0f;
+            maxSpeed = Params.GetFloat("max_speed");
+            wanderTargetPos = UnityEngine.Random.insideUnitSphere * Params.GetFloat("wander_radius");
+        }
+
+        private float GetRadius()
+        {
+            Renderer r = GetComponent<Renderer>();
+            if (r == null)
+            {
+                return defaultRadius;
+            }
+            else
+            {
+                return r.bounds.extents.magnitude;
+            }
         }
 
         public SteeringBehaviours()
@@ -787,11 +918,13 @@ namespace BGE
             force = Vector3.zero;
             velocity = Vector3.zero;
             mass = 1.0f;
-            flags = 0;
-            maxSpeed = Params.GetFloat("max_speed");
+            TurnOffAll();
             calculationMethod = CalculationMethods.WeightedTruncatedRunningSumWithPrioritisation;
             target = null;
             leader = null;
+            maxSpeed = Params.GetFloat("max_speed");
+            maxForce = Params.GetFloat("max_force");
+            wanderTargetPos = UnityEngine.Random.insideUnitSphere * Params.GetFloat("wander_radius"); 
         }
     }
 }

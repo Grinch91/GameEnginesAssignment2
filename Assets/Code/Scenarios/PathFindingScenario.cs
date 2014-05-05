@@ -39,11 +39,13 @@ namespace BGE.Scenarios
             path.Looped = false;
             path.draw = true;
             leader.GetComponent<SteeringBehaviours>().path = path;
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.follow_path);
+            leader.GetComponent<SteeringBehaviours>().FollowPathEnabled = true;
 
             CreateCamFollower(leader, new Vector3(0, 5, -10));
 
             GroundEnabled(false);
+
+            
         }
 
         public override void Update()
@@ -84,11 +86,11 @@ namespace BGE.Scenarios
                 Path path = pathFinder.FindPath(startPos, targetPos);
                 if (path.Waypoints.Count == 0)
                 {
-                    leader.GetComponent<SteeringBehaviours>().turnOffAll();
+                    leader.GetComponent<SteeringBehaviours>().TurnOffAll();
                 }
                 else
                 {
-                    leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.follow_path);
+                    leader.GetComponent<SteeringBehaviours>().FollowPathEnabled = true;
                 }
                 leader.GetComponent<SteeringBehaviours>().path = path;
                 leader.GetComponent<SteeringBehaviours>().path.draw = true;

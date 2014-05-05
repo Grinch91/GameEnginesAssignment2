@@ -9,7 +9,7 @@ namespace BGE
     {
 
         float speed = 10.0f;
-        float mouseX, mouseY;
+        
         // Use this for initialization
         void Start()
         {
@@ -44,34 +44,61 @@ namespace BGE
             transform.rotation = rot * transform.rotation;
         }
 
+        void Walk(float units)
+        {
+            if (Params.riftEnabled)
+            {
+                transform.position += GameObject.FindGameObjectWithTag("rightcamera").transform.forward * units;
+            }
+            else 
+            {
+                transform.position += transform.forward * units;
+            }
+        }
+
+        void Strafe(float units)
+        {
+            if (Params.riftEnabled)
+            {
+                transform.position += GameObject.FindGameObjectWithTag("rightcamera").transform.right * units;
+            }
+            else
+            {
+                transform.position += transform.right * units;
+            }
+        }
+
         // Update is called once per frame
         void Update()
         {
+            float mouseX, mouseY;
             float speed = this.speed;
 
-            if (Input.GetKey(KeyCode.LeftShift))
+            float runAxis = Input.GetAxis("Run Axis");
+
+            if (Input.GetKey(KeyCode.LeftShift) || runAxis != 0)
             {
                 speed *= 10.0f;
             }
 
             if (Input.GetKey(KeyCode.W))
             {
-                transform.position += gameObject.transform.forward * Time.deltaTime * speed;
+                Walk(Time.deltaTime * speed);
             }
 
             if (Input.GetKey(KeyCode.S))
             {
-                transform.position -= gameObject.transform.forward * Time.deltaTime * speed;
+                Walk(- Time.deltaTime * speed);
             }
 
             if (Input.GetKey(KeyCode.A))
             {
-                transform.position -= gameObject.transform.right * Time.deltaTime * speed;
+                Strafe(- Time.deltaTime * speed);
             }
 
             if (Input.GetKey(KeyCode.D))
             {
-                transform.position += gameObject.transform.right * Time.deltaTime * speed;
+                Strafe(Time.deltaTime * speed);
             }
             if (Input.GetKey(KeyCode.Q))
             {
@@ -82,14 +109,36 @@ namespace BGE
                 Roll(Time.deltaTime * speed);
             }
 
-            SteeringManager.PrintVector("Cam pos: ", transform.position);
-            SteeringManager.PrintVector("Cam forward: ", transform.forward);
+            
 
             mouseX = Input.GetAxis("Mouse X");
             mouseY = Input.GetAxis("Mouse Y");
 
+            GameObject ovrplayer = GameObject.FindGameObjectWithTag("ovrcamera");
+            if (ovrplayer != null)
+            {
+                ovrplayer.transform.position = transform.position;
+            }
+            
             Yaw(mouseX);
-            Pitch(-mouseY);
+            float contYaw = Input.GetAxis("Yaw Axis");
+            float contPitch = Input.GetAxis("Pitch Axis");
+            Yaw(contYaw);
+
+            // If in Rift mode, dont pitch
+            if (!Params.riftEnabled)
+            {
+                Pitch(-mouseY);
+                Pitch(contPitch);
+            }
+
+            float contWalk = Input.GetAxis("Walk Axis");
+            float contStrafe = Input.GetAxis("Strafe Axis");
+            Walk(-contWalk * speed * Time.deltaTime);
+            Strafe(contStrafe * speed * Time.deltaTime);
+            
+            //SteeringManager.PrintVector("Cam pos: ", transform.position);
+            //SteeringManager.PrintVector("Cam forward: ", transform.forward);
         }
     }
 }

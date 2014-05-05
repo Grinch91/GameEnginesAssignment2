@@ -11,8 +11,17 @@ namespace BGE.Scenarios
     {
         System.Random random = new System.Random(DateTime.Now.Millisecond);
 
-        public GameObject leaderPrefab = SteeringManager.Instance().leaderPrefab;
-        public GameObject boidPrefab = SteeringManager.Instance().boidPrefab;
+		public GameObject camFighter = SteeringManager.Instance.camFighter;
+        public GameObject leaderPrefab = SteeringManager.Instance.leaderPrefab;
+        public GameObject boidPrefab = SteeringManager.Instance.boidPrefab;
+		public GameObject humanFighterPrefab = SteeringManager.Instance.humanFighterPrefab;
+		public GameObject humanleaderPrefab = SteeringManager.Instance.humanleaderPrefab;
+		public GameObject oriFighterPrefab = SteeringManager.Instance.oriFighterPrefab;
+		public GameObject orileaderPrefab = SteeringManager.Instance.orileaderPrefab;
+		public GameObject goauldFighterPrefab = SteeringManager.Instance.goauldFighterPrefab;
+		public GameObject goauldleaderPrefab = SteeringManager.Instance.goauldleaderPrefab;
+		public GameObject asgardPrefab = SteeringManager.Instance.asgardPrefab;
+		public GameObject stargatePrefab = SteeringManager.Instance.stargatePrefab;
 
         public abstract string Description();
         public abstract void Start();
@@ -78,10 +87,10 @@ namespace BGE.Scenarios
             camFollower.GetComponent<SteeringBehaviours>().leader = leader;
             camFollower.GetComponent<SteeringBehaviours>().offset = offset;
             camFollower.transform.position = leader.transform.TransformPoint(offset);
-            camFollower.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.offset_pursuit);
-            //camFighter.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.wall_avoidance);
-            camFollower.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.obstacle_avoidance);
-            SteeringManager.Instance().camFighter = camFollower;
+            camFollower.GetComponent<SteeringBehaviours>().OffsetPursuitEnabled = true;
+            //camFighter.GetComponent<SteeringBehaviours>().PlaneAvoidanceEnabled = true;
+            camFollower.GetComponent<SteeringBehaviours>().ObstacleAvoidanceEnabled = true;
+            SteeringManager.Instance.camFighter = camFollower;
             GameObject.FindGameObjectWithTag("MainCamera").transform.position = camFollower.transform.position;
 
             return camFollower;
@@ -89,8 +98,8 @@ namespace BGE.Scenarios
 
         public virtual void TearDown()
         {
-            DestroyObjectsWithTag("boid");
             DestroyObjectsWithTag("obstacle");
+            DestroyObjectsWithTag("boid");
             DestroyObjectsWithTag("camFollower");
         }
 

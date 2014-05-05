@@ -19,21 +19,20 @@ namespace BGE.Scenarios
             Params.Load("default.txt");
 
             leader = CreateBoid(new Vector3(10, 120, -20), leaderPrefab);
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.arrive);
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.obstacle_avoidance);
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.separation);
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.wall_avoidance);
-            leader.GetComponent<SteeringBehaviours>().seekTargetPos = new Vector3(0, 100, 450);
+            leader.GetComponent<SteeringBehaviours>().ArriveEnabled = true;
+            leader.GetComponent<SteeringBehaviours>().ObstacleAvoidanceEnabled = true;
+            leader.GetComponent<SteeringBehaviours>().PlaneAvoidanceEnabled = true;
+            leader.GetComponent<SteeringBehaviours>().seekTargetPos = new Vector3(10, 100, 550);
 
             // Add some Obstacles
-            CreateObstacle(new Vector3(0, 120, 10), 4);
-            CreateObstacle(new Vector3(-10, 116, 80), 17);
+            CreateObstacle(new Vector3(5, 115, 30), 5);
+            CreateObstacle(new Vector3(-10, 126, 80), 17);
             CreateObstacle(new Vector3(10, 115, 120), 10);
-            CreateObstacle(new Vector3(5, 90, 150), 12);
-            CreateObstacle(new Vector3(-2, 105, 200), 20);
+            CreateObstacle(new Vector3(5, 120, 150), 12);
+            CreateObstacle(new Vector3(-2, 125, 200), 20);
             CreateObstacle(new Vector3(-25, 80, 250), 10);
             CreateObstacle(new Vector3(20, 80, 250), 10);
-            CreateObstacle(new Vector3(5, 70, 320), 35);
+            CreateObstacle(new Vector3(5, 130, 350), 35);
 
             // Now make a fleet
             int fleetSize = 10;
@@ -48,11 +47,11 @@ namespace BGE.Scenarios
                     GameObject fleet = CreateBoid(leader.transform.position + offset, boidPrefab);
                     fleet.GetComponent<SteeringBehaviours>().leader = leader;
                     fleet.GetComponent<SteeringBehaviours>().offset = offset;
-                    fleet.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.obstacle_avoidance);
+                    fleet.GetComponent<SteeringBehaviours>().ObstacleAvoidanceEnabled = true;
                     fleet.GetComponent<SteeringBehaviours>().seekTargetPos = new Vector3(0, 0, 450);
-                    fleet.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.offset_pursuit);
-                    fleet.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.separation);
-                    fleet.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.wall_avoidance);
+                    fleet.GetComponent<SteeringBehaviours>().OffsetPursuitEnabled = true;
+                    fleet.GetComponent<SteeringBehaviours>().SeparationEnabled = true;
+                    fleet.GetComponent<SteeringBehaviours>().PlaneAvoidanceEnabled = true;
                 }
             }
 
@@ -61,6 +60,7 @@ namespace BGE.Scenarios
 
             GroundEnabled(true);
 
+            
         }
 
     }

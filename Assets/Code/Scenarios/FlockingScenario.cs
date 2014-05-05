@@ -20,27 +20,43 @@ namespace BGE.Scenarios
 
             // Create the avoidance boid
             leader = CreateBoid(Utilities.RandomPosition(range), leaderPrefab);
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.obstacle_avoidance);
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.wander);
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.sphere_constrain);
+            leader.GetComponent<SteeringBehaviours>().ObstacleAvoidanceEnabled = true;
+            leader.GetComponent<SteeringBehaviours>().WanderEnabled = true;
+            leader.GetComponent<SteeringBehaviours>().SphereConstrainEnabled = true;
 
             // Create the boids
             GameObject boid = null;
-            for (int i = 0; i < Params.GetFloat("num_boids"); i++)
+            // Pick a random boid and draw it's neighbours
+            int whichBoid = UnityEngine.Random.Range(0, Params.GetInt("num_boids") - 1);
+            GameObject camBoid = null;
+            for (int i = 0; i < Params.GetInt("num_boids"); i++)
             {
                 Vector3 pos = Utilities.RandomPosition(range);
                 boid = CreateBoid(pos, boidPrefab);
-                boid.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.separation);
-                boid.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.cohesion);
-                boid.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.alignment);
-                boid.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.wander);
-                boid.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.sphere_constrain);
-                boid.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.obstacle_avoidance);
-            
+                boid.GetComponent<SteeringBehaviours>().SeparationEnabled = true;
+                boid.GetComponent<SteeringBehaviours>().CohesionEnabled = true;
+                boid.GetComponent<SteeringBehaviours>().AlignmentEnabled = true;
+                boid.GetComponent<SteeringBehaviours>().WanderEnabled = true;
+                boid.GetComponent<SteeringBehaviours>().SphereConstrainEnabled = true;
+                boid.GetComponent<SteeringBehaviours>().ObstacleAvoidanceEnabled = true;
+                if (i == whichBoid)
+                {
+                    boid.GetComponent<SteeringBehaviours>().drawNeighbours = true;
+                    AudioSource audio = boid.AddComponent<AudioSource>();
+                    AudioClip clip = Resources.Load<AudioClip>("Audio/spaceship");
+                    audio.loop = true;
+                    audio.clip = clip;
+                    audio.Play();
+                    camBoid = boid;
+                }
+                else
+                {
+                    boid.GetComponent<SteeringBehaviours>().drawNeighbours = false;
+                }
             }
 
             // Create some obstacles..
-            int numObstacles = 6;
+            int numObstacles = 5;
             float dist = (range * 2) / numObstacles;
             float radius = 20.0f;
             for (float x = -range; x < range; x += dist)
@@ -53,7 +69,7 @@ namespace BGE.Scenarios
 
             GroundEnabled(false);
 
-            CreateCamFollower(boid, new Vector3(0, 0, -10));
+            CreateCamFollower(camBoid, new Vector3(0, 0, -10));
         }
     }
 }

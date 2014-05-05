@@ -30,9 +30,9 @@ namespace BGE.States
             entity.GetComponent<SteeringBehaviours>().path.Waypoints.Add(initialPos + new Vector3(50, 0, 80));
             entity.GetComponent<SteeringBehaviours>().path.Looped = true;            
             entity.GetComponent<SteeringBehaviours>().path.draw = true;
-            entity.GetComponent<SteeringBehaviours>().turnOffAll();
-            entity.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.follow_path);
-            entity.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.obstacle_avoidance);
+            entity.GetComponent<SteeringBehaviours>().TurnOffAll();
+            entity.GetComponent<SteeringBehaviours>().FollowPathEnabled = true;
+            entity.GetComponent<SteeringBehaviours>().ObstacleAvoidanceEnabled = true;
         }
         public override void Exit()
         {
@@ -43,7 +43,7 @@ namespace BGE.States
         {
             float range = 50.0f;           
             // Can I see the leader?
-            GameObject leader = SteeringManager.Instance().currentScenario.leader;
+            GameObject leader = SteeringManager.Instance.currentScenario.leader;
             if ((leader.transform.position - entity.transform.position).magnitude < range)
             {
                 // Is the leader inside my FOV

@@ -19,18 +19,23 @@ namespace BGE.Scenarios
             Params.Load("default.txt");
             Vector3 aiPos = new Vector3(-20, 50, 50);
 
-            leader = CreateBoid(new Vector3(10, 50, 0), leaderPrefab);
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.arrive);
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.obstacle_avoidance);
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.wall_avoidance);
-            leader.GetComponent<SteeringBehaviours>().seekTargetPos = aiPos + new Vector3(0, 0, 200);
-            leader.GetComponent<SteeringBehaviours>().maxSpeed = 250;
-
             GameObject aiBoid = CreateBoid(aiPos, boidPrefab);
             aiBoid.AddComponent<StateMachine>();
+            AudioSource audio = aiBoid.AddComponent<AudioSource>();
+            AudioClip clip = Resources.Load<AudioClip>("Audio/lazer");
+            audio.loop = false;
+            audio.clip = clip;            
             aiBoid.GetComponent<StateMachine>().SwicthState(new IdleState(aiBoid));
 
+
+            leader = CreateBoid(new Vector3(10, 50, 0), leaderPrefab);
+            leader.GetComponent<SteeringBehaviours>().maxSpeed = 350;
+            leader.AddComponent<StateMachine>();
+            leader.GetComponent<StateMachine>().SwicthState(new TeaseState(leader, aiBoid));
+
+
             CreateCamFollower(leader, new Vector3(0, 5, -10));
+            
             
         }
 	}

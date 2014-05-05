@@ -31,13 +31,15 @@ namespace BGE.Scenarios
             path.Waypoints.Add(initialPos + new Vector3(50, 0, 80));
             path.Looped = true;
             path.draw = true;
-            leader.GetComponent<SteeringBehaviours>().turnOffAll();
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.follow_path);
-            leader.GetComponent<SteeringBehaviours>().turnOn(SteeringBehaviours.behaviour_type.obstacle_avoidance);
+            leader.GetComponent<SteeringBehaviours>().TurnOffAll();
+            leader.GetComponent<SteeringBehaviours>().FollowPathEnabled = true;
+            leader.GetComponent<SteeringBehaviours>().ObstacleAvoidanceEnabled = true;
 
             CreateCamFollower(leader, new Vector3(0, 5, -10));
 
             GroundEnabled(true);
+
+            
         }
     }
 }
